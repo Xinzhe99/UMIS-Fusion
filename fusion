@@ -1,0 +1,85 @@
+import torch
+import argparse
+from torchvision import transforms
+import time
+import numpy as np
+import os
+import DNWithCA_V2
+import glob
+import random
+import cv2
+import pydensecrf.densecrf as dcrf
+from pydensecrf.utils import unary_from_labels, create_pairwise_gaussian
+from PIL import Image
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--name', default='DNwithCA', help='model name: (default: arch+timestamp)')
+    parser.add_argument('--type',default='jpg',type=str)
+    parser.add_argument('--fuse_Data_dir', default="pic_sequence_all/",type=str)
+    parser.add_argument('--dict_path',default='models/DNwithCA/model_200.pth',type=str)#Ä£ÐÍÑ¡Ôñ¸ÄÕâÀï
+    return parser.parse_args()
+if __name__ == '__main__':
+    args = parse_args()
+    width=800#need set
+    height=600#need set
+    t1 = time.time()
+    if torch.cuda.is_available():
+        device='cuda:0'
+    else:
+        device='cpu'
+    use_gpu = torch.cuda.is_available()
+    if use_gpu:
+        print('GPU Mode Acitavted')
+    else:
+        print('CPU Mode Acitavted')
+    if not os.path.exists('result/%s'% args.name+'sequence'):
+        os.makedirs('result/%s' % args.name+'sequence')
+    pic_sequence_list = glob.glob(args.fuse_Data_dir + '*.jpg')#文本类型列表
+    # random.shuffle(pic_sequence_list)
+    img_cv_list=[None]*(len(pic_sequence_list))
+    img_list=[None]*(len(pic_sequence_list))
+    sf_list=[None] * (len(pic_sequence_list))
+    mark_np=np.zeros(shape=((height,width))).astype(int)
+    sf_num_np = np.zeros(shape=((height, width)))
+    net = DNWithCA_V2.DNWithCA(trainmode=False)
+    data_transforms = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize([0.5], [0.5])])
+    if use_gpu:
+        net = net.cuda()
+        net.cuda()
+        net.load_state_dict(torch.load(args.dict_path))
+    else:
+        net = net
+        net.load_state_dict(torch.load(args.dict_path, map_location='cpu'))
+    net.eval()
+    #read sf list
+    for i in range(len(pic_sequence_list)):
+        img_list[i]=Image.open(pic_sequence_list[i]).convert('L').resize((width,height),Image.Resampling.BILINEAR)
+        img_list[i]=data_transforms(img_list[i]).unsqueeze(0).to(device)
+        sf_list[i]=net(img_list[i])
+    #find best index
+    for i in range(len(sf_list)):
+        for a in range(sf_num_np.shape[0]):
+            for b in range(sf_num_np.shape[1]):
+                if sf_list[i][a][b]>=sf_num_np[a][b]:
+                    sf_num_np[a][b]=sf_list[i][a][b]
+                    mark_np[a][b]=int(i)
+    #fusion step1:create pic list which could be read by cv2
+    for i in range(len(pic_sequence_list)):
+        img_cv_list[i]=cv2.imread(pic_sequence_list[i])
+        img_cv_list[i]=cv2.resize(img_cv_list[i],(width,height))
+    #create pic_init
+    pic_fusion=np.zeros((height,width,3),dtype=np.uint8)
+    pic_fusion_height = pic_fusion.shape[0]
+    pic_fusion_width = pic_fusion.shape[1]
+    pic_fusion_channels = pic_fusion.shape[2]
+    for row in range(pic_fusion_height):
+        for col in range(pic_fusion_width):
+            for channel in range(pic_fusion_channels):
+                pic_fusion[row,col,channel]=img_cv_list[mark_np[row,col]][row,col,channel]
+    print(time.time()-t1)
+    cv2.imshow('test',pic_fusion)
+    cv2.waitKey()
+    cv2.imwrite("result/{}/fusion_result.{}".format(args.name + 'sequence', args.type),
+                pic_fusion)
