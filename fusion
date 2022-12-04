@@ -6,46 +6,130 @@ import numpy as np
 import os
 import DNWithCA_V2
 import glob
-import random
 import cv2
-import pydensecrf.densecrf as dcrf
-from pydensecrf.utils import unary_from_labels, create_pairwise_gaussian
-from PIL import Image
+from PIL import Image,ImageOps
+from sklearn.decomposition import PCA
+import re
+from datetime import datetime
+from numba import jit
+from numba.typed import List
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', default='DNwithCA', help='model name: (default: arch+timestamp)')
-    parser.add_argument('--type',default='jpg',type=str)
-    parser.add_argument('--fuse_Data_dir', default="pic_sequence_all/",type=str)
-    parser.add_argument('--dict_path',default='models/DNwithCA/model_200.pth',type=str)#Ä£ÐÍÑ¡Ôñ¸ÄÕâÀï
+    parser.add_argument('--name', default='DNwithCA_sfloss+equal+medfilter_SH')
+    parser.add_argument('--fuse_Data_dir', default="pic_sequence_ceshi/", type=str)
+    parser.add_argument('--dict_path',default='models/DNwithCA_withGraloss/model_200.pth', type=str)
+    parser.add_argument('--mean_filter_ksize', default='5', type=int)
+    parser.add_argument('--width', default='820', type=int)
+    parser.add_argument('--height', default='600', type=int)
+    parser.add_argument('--use_PCA', default=False, type=bool)
+    parser.add_argument('--use_Pre_processing', default=True, type=bool)
+    parser.add_argument('--fuse_result_type', default='jpg', type=str)
+    parser.add_argument('--source_type', default='*.jpg', type=str)
+    parser.add_argument('--decisionmap_np_name', default='decision_map_np', type=str)
     return parser.parse_args()
+
+@jit(nopython=True,cache=True)
+def decisionmap_process(input_dm_np,k_size=5):
+    img_height,img_width = input_dm_np.shape[0], input_dm_np.shape[1]
+    padding_len = k_size // 2
+    pad_img = np.zeros((img_height + 2 * padding_len, img_width + 2 * padding_len)).astype(np.int64)
+    for i in range(pad_img.shape[1]):
+        for j in range(pad_img.shape[0]):
+            if i > padding_len - 1 and j > padding_len - 1 and i < pad_img.shape[1] - padding_len and j < pad_img.shape[0] - padding_len:
+                pad_img[j][i] = int(input_dm_np[j - padding_len][i - padding_len])
+            else:
+                pad_img[j][i] = 0
+    new_img = np.zeros((img_height, img_width)).astype(np.int64)
+    for i in range(img_height):
+        for j in range(img_width):
+            #get original Value
+            original_Value = pad_img[i + padding_len, j + padding_len]
+            #get matrix
+            moving_matrix=pad_img[i:i+2*padding_len+1,j:j+2*padding_len+1].flatten()
+            if not(np.any(moving_matrix)):
+                new_img[i][j] = original_Value
+            else:
+                #delete 0
+                moving_matrix = moving_matrix[moving_matrix != 0]
+                #get max min ,med,most_fre
+                moving_max=np.max(moving_matrix)
+                moving_min = np.min(moving_matrix)
+                moving_med = np.median(moving_matrix)
+                moving_most_fre = np.argmax(np.bincount(moving_matrix))
+                allowed_float=(moving_most_fre-k_size//2,moving_most_fre+k_size//2)
+                #remove1:Removal of excitation values
+                if original_Value>allowed_float[1] or original_Value <allowed_float[0]:
+                    new_img[i][j] =moving_most_fre
+                else:
+                    new_img[i][j] =original_Value
+    return new_img
+@jit(nopython=True,cache=True)
+def Final_fusion(in_img_cv_list, in_decisionmap,height,width):  # Function is compiled and runs in machine code
+    pic_fusion = np.zeros((height, width, 3), dtype=np.int64)
+    pic_fusion_height = pic_fusion.shape[0]
+    pic_fusion_width = pic_fusion.shape[1]
+    pic_fusion_channels = pic_fusion.shape[2]
+    for row in range(pic_fusion_height):
+            for col in range(pic_fusion_width):
+                    for channel in range(pic_fusion_channels):
+                        pic_fusion[row, col, channel] = in_img_cv_list[in_decisionmap[row, col]][row, col, channel]
+    return pic_fusion
+
+@jit(nopython=True,cache=True)
+def Generate_decisionmap(sf_list):
+    sf_numba_list = List(sf_list)
+    sf_num_np = np.zeros(shape=((height, width)))
+    decisionmap_np = np.zeros((height, width),dtype=np.int64)
+    for i in range(len(sf_numba_list)):
+        for a in range(sf_num_np.shape[0]):
+            for b in range(sf_num_np.shape[1]):
+                if sf_numba_list[i][a][b]>=sf_num_np[a][b]:
+                    sf_num_np[a][b]=sf_numba_list[i][a][b]
+                    decisionmap_np[a][b]=int(i)
+    return decisionmap_np
+
 if __name__ == '__main__':
+    now = datetime.now()
     args = parse_args()
-    width=800#need set
-    height=600#need set
+    width = args.width  # need set
+    height = args.height
     t1 = time.time()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     if torch.cuda.is_available():
-        device='cuda:0'
-    else:
-        device='cpu'
-    use_gpu = torch.cuda.is_available()
-    if use_gpu:
         print('GPU Mode Acitavted')
     else:
         print('CPU Mode Acitavted')
-    if not os.path.exists('result/%s'% args.name+'sequence'):
-        os.makedirs('result/%s' % args.name+'sequence')
-    pic_sequence_list = glob.glob(args.fuse_Data_dir + '*.jpg')#文本类型列表
-    # random.shuffle(pic_sequence_list)
+    if not os.path.exists('result/%s'% args.name):
+        os.makedirs('result/%s' % args.name)
+    pic_sequence_list = glob.glob(args.fuse_Data_dir + args.source_type)
+    pic_sequence_list.sort(key=lambda x: int(str(re.findall("\d+", x)[0])))#Sort by the number in the file name
+    #pca
+    if args.use_PCA==True:
+        data = []
+        pic_sequence_list_2d=[]
+        for i in pic_sequence_list:
+            img = cv2.imread(i, cv2.IMREAD_GRAYSCALE)
+            img = cv2.resize(img, (args.width, args.height))
+            img = img.reshape(1, -1)
+            data.append(img)
+        data = np.array(data).reshape(len(data), -1)
+        pca = PCA(n_components=1)
+        new_data = pca.fit_transform(data)
+        data_inverse = pca.inverse_transform(new_data).astype('uint8')
+        for i in range(len(data_inverse)):
+            tmp_img = data_inverse[i].reshape(args.height, args.width).astype('uint8')
+            pic_sequence_list_2d.append(tmp_img)
+    else:
+        pass
+    # random.shuffle(pic_sequence_list)#shuffle method
     img_cv_list=[None]*(len(pic_sequence_list))
     img_list=[None]*(len(pic_sequence_list))
     sf_list=[None] * (len(pic_sequence_list))
-    mark_np=np.zeros(shape=((height,width))).astype(int)
-    sf_num_np = np.zeros(shape=((height, width)))
     net = DNWithCA_V2.DNWithCA(trainmode=False)
     data_transforms = transforms.Compose([
         transforms.ToTensor(),
         transforms.Normalize([0.5], [0.5])])
-    if use_gpu:
+    if torch.cuda.is_available():
         net = net.cuda()
         net.cuda()
         net.load_state_dict(torch.load(args.dict_path))
@@ -55,31 +139,44 @@ if __name__ == '__main__':
     net.eval()
     #read sf list
     for i in range(len(pic_sequence_list)):
-        img_list[i]=Image.open(pic_sequence_list[i]).convert('L').resize((width,height),Image.Resampling.BILINEAR)
-        img_list[i]=data_transforms(img_list[i]).unsqueeze(0).to(device)
-        sf_list[i]=net(img_list[i])
-    #find best index
-    for i in range(len(sf_list)):
-        for a in range(sf_num_np.shape[0]):
-            for b in range(sf_num_np.shape[1]):
-                if sf_list[i][a][b]>=sf_num_np[a][b]:
-                    sf_num_np[a][b]=sf_list[i][a][b]
-                    mark_np[a][b]=int(i)
+        if args.use_PCA==False:#without PCA
+            img_list[i]=Image.open(pic_sequence_list[i]).convert('L').resize((width,height),Image.Resampling.BILINEAR)
+            if args.use_Pre_processing==True:#with pre-process
+                img_list[i]= ImageOps.equalize(img_list[i]) # pre-process
+                img_eq_np = np.array(img_list[i])# pre-process
+                img_med = cv2.medianBlur(img_eq_np, 5)# pre-process
+                img_list[i] = Image.fromarray(img_med.astype('uint8'))# pre-process
+            else:
+                pass
+            img_list[i] = data_transforms(img_list[i]).unsqueeze(0).to(device)
+            sf_list[i] = net(img_list[i])
+        else:#with PCA
+            img_list[i]=Image.fromarray(pic_sequence_list_2d[i], mode='L')
+            if args.use_Pre_processing == True:#with pre-process
+                img_list[i] = ImageOps.equalize(img_list[i]) # pre-process
+                img_eq_np = np.array(img_list[i])  # pre-process
+                img_med = cv2.medianBlur(img_eq_np, 5)  # pre-process
+                img_list[i] = Image.fromarray(img_med.astype('uint8'))  # pre-process
+            else:
+                pass
+            img_list[i] = data_transforms(img_list[i]).unsqueeze(0).to(device)
+            sf_list[i] = net(img_list[i])
+        print('finish send no.{} pic into the net'.format(str(i)))
+    #generate decision map
+    decisionmap_numpy=Generate_decisionmap(sf_list)
+    #save decision map numpy
+    decisionmap_np_dst='result/{}/{}'.format(args.name,args.decisionmap_np_name + now.strftime("%Y_%m_%d_%H_%M_%S")+'.npy')
+    np.save(decisionmap_np_dst,decisionmap_numpy)
+    print('Finish gernerate decision map,and save in {}'.format(decisionmap_np_dst))
+    decisionmap_np_afterprocess = decisionmap_process(decisionmap_numpy)
     #fusion step1:create pic list which could be read by cv2
     for i in range(len(pic_sequence_list)):
         img_cv_list[i]=cv2.imread(pic_sequence_list[i])
         img_cv_list[i]=cv2.resize(img_cv_list[i],(width,height))
-    #create pic_init
-    pic_fusion=np.zeros((height,width,3),dtype=np.uint8)
-    pic_fusion_height = pic_fusion.shape[0]
-    pic_fusion_width = pic_fusion.shape[1]
-    pic_fusion_channels = pic_fusion.shape[2]
-    for row in range(pic_fusion_height):
-        for col in range(pic_fusion_width):
-            for channel in range(pic_fusion_channels):
-                pic_fusion[row,col,channel]=img_cv_list[mark_np[row,col]][row,col,channel]
+    #create pic
+    pic_fusion=Final_fusion(img_cv_list,decisionmap_np_afterprocess,600,820)
     print(time.time()-t1)
-    cv2.imshow('test',pic_fusion)
-    cv2.waitKey()
-    cv2.imwrite("result/{}/fusion_result.{}".format(args.name + 'sequence', args.type),
+     # finish time
+    cv2.imwrite("result/{}/fusion_result{}.{}".format(args.name,now.strftime("%Y_%m_%d_%H_%M_%S"), args.fuse_result_type),
                 pic_fusion)
+    print('Fusion Done!')
