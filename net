@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as f
-import numpy as np
 
 class h_sigmoid(nn.Module):
     def __init__(self, inplace=True):
@@ -110,31 +109,24 @@ class DNWithCA(nn.Module):
                 return output
 
     @staticmethod
-    def fusion_channel_sf(f1, kernel_radius=5):
+    def fusion_channel_sf(f1, kernel_radius=5):#default=5
         """
         Perform channel sf fusion two features
         """
         device = f1.device
         b, c, h, w = f1.shape#假设[1,80,5,5]
         r_shift_kernel = torch.FloatTensor([[0, 0, 0], [1, 0, 0], [0, 0, 0]])\
-            .reshape((1, 1, 3, 3)).repeat(c, 1, 1, 1) #卷积核weight.shape=[out_channels,in_channels,h,w]  这里c==out_channels
+            .reshape((1, 1, 3, 3)).repeat(c, 1, 1, 1).to(device) #卷积核weight.shape=[out_channels,in_channels,h,w]  这里c==out_channels
         b_shift_kernel = torch.FloatTensor([[0, 1, 0], [0, 0, 0], [0, 0, 0]])\
-            .reshape((1, 1, 3, 3)).repeat(c, 1, 1, 1)  #需要输出维度个卷积核 所以要repeat成c个
-        f1_r_shift = f.conv2d(f1, r_shift_kernel, padding=1, groups=c)#每组计算被in_channels/groups个channels的卷积核计算
-        f1_b_shift = f.conv2d(f1, b_shift_kernel, padding=1, groups=c)#对输入tensor f1 进行卷积操作，卷积核为x_shift_kernel 且都用同一个卷积核计算
-        f1_grad = torch.pow((f1_r_shift - f1), 2) + torch.pow((f1_b_shift - f1), 2)#RF^2+CF^2  RF与SF 两幅特征图相加的图
+            .reshape((1, 1, 3, 3)).repeat(c, 1, 1, 1).to(device)  #需要输出维度个卷积核 所以要repeat成c个
+        f1_r_shift = f.conv2d(f1, r_shift_kernel, padding=1, groups=c).to(device)#每组计算被in_channels/groups个channels的卷积核计算
+        f1_b_shift = f.conv2d(f1, b_shift_kernel, padding=1, groups=c).to(device)#对输入tensor f1 进行卷积操作，卷积核为x_shift_kernel 且都用同一个卷积核计算
+        f1_grad = torch.pow((f1_r_shift - f1), 2) + torch.pow((f1_b_shift - f1), 2).to(device)#RF^2+CF^2  RF与SF 两幅特征图相加的图
         kernel_size = kernel_radius * 2 + 1   #2R+1
-        add_kernel = torch.ones((c, 1, kernel_size, kernel_size)).float()#[80,1,11,11]
+        add_kernel = torch.ones((c, 1, kernel_size, kernel_size)).float().to(device)#[80,1,11,11]
         kernel_padding = kernel_size // 2 #padding==5
-        f1_sf = torch.sum(f.conv2d(f1_grad, add_kernel, padding=kernel_padding, groups=c), dim=1)
+        f1_sf = torch.sum(f.conv2d(f1_grad, add_kernel, padding=kernel_padding, groups=c), dim=1).to(device)
         f1_sf_np = f1_sf.squeeze().cpu().numpy()
-        # f1_sf_np_norm = (f1_sf_np - np.min(f1_sf_np)) / (np.max(f1_sf_np) - np.min(f1_sf_np)+(1e-5))
-        # weight_zeros = torch.zeros(f1_sf.shape).cuda(device)
-        # weight_ones = torch.ones(f1_sf.shape).cuda(device)
-        #
-        # # get decision map
-        # dm_tensor = torch.where(f1_sf > f2_sf, weight_ones, weight_zeros).cuda(device)
-        # dm_np = dm_tensor.squeeze().cpu().numpy().astype(np.int)
         return f1_sf_np
 
     @staticmethod
