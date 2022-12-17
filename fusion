@@ -18,18 +18,17 @@ def parse_args():
     parser.add_argument('--name', default='DNwithCA_sfloss+equal+medfilter_SH')
     parser.add_argument('--fuse_Data_dir', default="pic_sequence_ceshi/", type=str)
     parser.add_argument('--dict_path',default='models/DNwithCA_withGraloss/model_200.pth', type=str)
-    parser.add_argument('--mean_filter_ksize', default='5', type=int)
     parser.add_argument('--width', default='820', type=int)
     parser.add_argument('--height', default='600', type=int)
     parser.add_argument('--use_PCA', default=False, type=bool)
-    parser.add_argument('--use_Pre_processing', default=True, type=bool)
+    parser.add_argument('--RemoveHighFreNoise', default=False, type=bool)
     parser.add_argument('--fuse_result_type', default='jpg', type=str)
     parser.add_argument('--source_type', default='*.jpg', type=str)
     parser.add_argument('--decisionmap_np_name', default='decision_map_np', type=str)
     return parser.parse_args()
 
 @jit(nopython=True,cache=True)
-def decisionmap_process(input_dm_np,k_size=5):
+def decisionmap_process(input_dm_np,k_size=37):
     img_height,img_width = input_dm_np.shape[0], input_dm_np.shape[1]
     padding_len = k_size // 2
     pad_img = np.zeros((img_height + 2 * padding_len, img_width + 2 * padding_len)).astype(np.int64)
@@ -38,30 +37,19 @@ def decisionmap_process(input_dm_np,k_size=5):
             if i > padding_len - 1 and j > padding_len - 1 and i < pad_img.shape[1] - padding_len and j < pad_img.shape[0] - padding_len:
                 pad_img[j][i] = int(input_dm_np[j - padding_len][i - padding_len])
             else:
-                pad_img[j][i] = 0
+                pad_img[j][i] = -1
     new_img = np.zeros((img_height, img_width)).astype(np.int64)
     for i in range(img_height):
         for j in range(img_width):
             #get original Value
-            original_Value = pad_img[i + padding_len, j + padding_len]
+            # original_Value = pad_img[i + padding_len, j + padding_len]
             #get matrix
             moving_matrix=pad_img[i:i+2*padding_len+1,j:j+2*padding_len+1].flatten()
-            if not(np.any(moving_matrix)):
-                new_img[i][j] = original_Value
-            else:
-                #delete 0
-                moving_matrix = moving_matrix[moving_matrix != 0]
-                #get max min ,med,most_fre
-                moving_max=np.max(moving_matrix)
-                moving_min = np.min(moving_matrix)
-                moving_med = np.median(moving_matrix)
-                moving_most_fre = np.argmax(np.bincount(moving_matrix))
-                allowed_float=(moving_most_fre-k_size//2,moving_most_fre+k_size//2)
-                #remove1:Removal of excitation values
-                if original_Value>allowed_float[1] or original_Value <allowed_float[0]:
-                    new_img[i][j] =moving_most_fre
-                else:
-                    new_img[i][j] =original_Value
+            #delete pidding value -1
+            moving_matrix = moving_matrix[moving_matrix != -1]
+            #get max min ,med,most_fre
+            moving_most_fre = np.argmax(np.bincount(moving_matrix))
+            new_img[i][j]=moving_most_fre
     return new_img
 @jit(nopython=True,cache=True)
 def Final_fusion(in_img_cv_list, in_decisionmap,height,width):  # Function is compiled and runs in machine code
@@ -89,7 +77,6 @@ def Generate_decisionmap(sf_list):
     return decisionmap_np
 
 if __name__ == '__main__':
-    now = datetime.now()
     args = parse_args()
     width = args.width  # need set
     height = args.height
@@ -141,7 +128,7 @@ if __name__ == '__main__':
     for i in range(len(pic_sequence_list)):
         if args.use_PCA==False:#without PCA
             img_list[i]=Image.open(pic_sequence_list[i]).convert('L').resize((width,height),Image.Resampling.BILINEAR)
-            if args.use_Pre_processing==True:#with pre-process
+            if args.RemoveHighFreNoise==True:
                 img_list[i]= ImageOps.equalize(img_list[i]) # pre-process
                 img_eq_np = np.array(img_list[i])# pre-process
                 img_med = cv2.medianBlur(img_eq_np, 5)# pre-process
@@ -152,7 +139,7 @@ if __name__ == '__main__':
             sf_list[i] = net(img_list[i])
         else:#with PCA
             img_list[i]=Image.fromarray(pic_sequence_list_2d[i], mode='L')
-            if args.use_Pre_processing == True:#with pre-process
+            if args.RemoveHighFreNoise == True:#with pre-process
                 img_list[i] = ImageOps.equalize(img_list[i]) # pre-process
                 img_eq_np = np.array(img_list[i])  # pre-process
                 img_med = cv2.medianBlur(img_eq_np, 5)  # pre-process
@@ -165,10 +152,15 @@ if __name__ == '__main__':
     #generate decision map
     decisionmap_numpy=Generate_decisionmap(sf_list)
     #save decision map numpy
-    decisionmap_np_dst='result/{}/{}'.format(args.name,args.decisionmap_np_name + now.strftime("%Y_%m_%d_%H_%M_%S")+'.npy')
+    decisionmap_np_dst='result/{}/{}'.format(args.name,args.decisionmap_np_name + datetime.now().strftime("%Y_%m_%d_%H_%M_%S")+'.npy')
     np.save(decisionmap_np_dst,decisionmap_numpy)
-    print('Finish gernerate decision map,and save in {}'.format(decisionmap_np_dst))
+    print('Finish gernerate initial decision map,and save in {}'.format(decisionmap_np_dst))
+    #Optimization Decision Map
     decisionmap_np_afterprocess = decisionmap_process(decisionmap_numpy)
+    decisionmap_np_optimized_dst = 'result/{}/{}'.format(args.name, args.decisionmap_np_name + datetime.now().strftime(
+        "%Y_%m_%d_%H_%M_%S") + 'optimized' + '.npy')
+    np.save(decisionmap_np_optimized_dst, decisionmap_np_afterprocess)
+    print('Finish gernerate Final decision map,and save in {}'.format(decisionmap_np_optimized_dst))
     #fusion step1:create pic list which could be read by cv2
     for i in range(len(pic_sequence_list)):
         img_cv_list[i]=cv2.imread(pic_sequence_list[i])
@@ -176,7 +168,7 @@ if __name__ == '__main__':
     #create pic
     pic_fusion=Final_fusion(img_cv_list,decisionmap_np_afterprocess,600,820)
     print(time.time()-t1)
-     # finish time
-    cv2.imwrite("result/{}/fusion_result{}.{}".format(args.name,now.strftime("%Y_%m_%d_%H_%M_%S"), args.fuse_result_type),
-                pic_fusion)
-    print('Fusion Done!')
+    save_path = "result/{}/fusion_result{}.{}".format(args.name, datetime.now().strftime("%Y_%m_%d_%H_%M_%S"),
+                                                      args.fuse_result_type)
+    cv2.imwrite(save_path, pic_fusion)
+    print('Fusion Done!,and save in {}'.format(save_path))
