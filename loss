@@ -1,0 +1,128 @@
+import torch.nn as nn
+import torch
+import torch.nn.functional as F
+from torch.autograd import Variable
+from math import exp
+
+class Gradient_Loss(nn.Module):
+  def __init__(self):
+    super(Gradient_Loss, self).__init__()
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    kernel_x = [[-1., 0., 1.], [-2., 0., 2.], [-1., 0., 1.]]
+    kernel_x = torch.FloatTensor(kernel_x).unsqueeze(0).unsqueeze(0).to(device)
+    kernel_y = [[-1., -2., -1.], [0., 0., 0.], [1., 2., 1.]]
+    kernel_y = torch.FloatTensor(kernel_y).unsqueeze(0).unsqueeze(0).to(device)
+    self.weight_x = nn.Parameter(data=kernel_x, requires_grad=False)
+    self.weight_y = nn.Parameter(data=kernel_y, requires_grad=False)
+
+  def forward(self, input_img,output_img):
+    grad_x1 = F.conv2d(input_img, self.weight_x)
+    grad_y1 = F.conv2d(input_img, self.weight_y)
+    grad_x2 = F.conv2d(output_img, self.weight_x)
+    grad_y2 = F.conv2d(output_img, self.weight_y)
+    # gradient1 = torch.abs(grad_x1) + torch.abs(grad_y1)
+    # gradient2 = torch.abs(grad_x2) + torch.abs(grad_y2)
+    gradient1 = torch.sqrt(grad_x1**2+grad_y1**2+1e-5)
+    gradient2 = torch.sqrt(grad_x2 ** 2 + grad_y2 ** 2+1e-5)
+    loss_temp = torch.pow(gradient2-gradient1,2) / (gradient1.shape[2] * gradient1.shape[3]*gradient1.shape[0])
+    loss_temp = torch.sum(loss_temp)
+    return loss_temp
+
+class SF_Loss(nn.Module):
+    def __init__(self):
+        super(SF_Loss, self).__init__()
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        kernel_x=[[0, 0, 0], [1, 0, 0], [0, 0, 0]]
+        kernel_x = torch.FloatTensor(kernel_x).unsqueeze(0).unsqueeze(0).to(device)
+        kernel_y=[[0, 1, 0], [0, 0, 0], [0, 0, 0]]
+        kernel_y = torch.FloatTensor(kernel_y).unsqueeze(0).unsqueeze(0).to(device)
+        self.weight_x = nn.Parameter(data=kernel_x, requires_grad=False)
+        self.weight_y = nn.Parameter(data=kernel_y, requires_grad=False)
+
+    def forward(self,input_img,output_img):
+        SF_x1 = F.conv2d(input_img, self.weight_x)
+        SF_y1 = F.conv2d(input_img, self.weight_y)
+        SF_x2 = F.conv2d(output_img, self.weight_x)
+        SF_y2 = F.conv2d(output_img, self.weight_y)
+        SF_in = torch.sqrt(SF_x1 ** 2 + SF_y1 ** 2)
+        SF_out = torch.sqrt(SF_x2 ** 2 + SF_y2 ** 2)
+        loss_temp = torch.pow(SF_out - SF_in, 2) / (SF_in.shape[2] * SF_in.shape[3] * SF_in.shape[0])
+        loss_temp = torch.sum(loss_temp)
+        return loss_temp
+
+def gaussian(window_size, sigma):
+    gauss = torch.Tensor([exp(-(x - window_size // 2) ** 2 / float(2 * sigma ** 2)) for x in range(window_size)])
+    return gauss / gauss.sum()
+
+
+def create_window(window_size, channel):
+    _1D_window = gaussian(window_size, 1.5).unsqueeze(1)
+    _2D_window = _1D_window.mm(_1D_window.t()).float().unsqueeze(0).unsqueeze(0)
+    window = Variable(_2D_window.expand(channel, 1, window_size, window_size).contiguous())
+    return window
+
+
+def _ssim(img1, img2, window, window_size, channel, size_average=True):
+    mu1 = F.conv2d(img1, window, padding=window_size // 2, groups=channel)
+    mu2 = F.conv2d(img2, window, padding=window_size // 2, groups=channel)
+
+    mu1_sq = mu1.pow(2)
+    mu2_sq = mu2.pow(2)
+    mu1_mu2 = mu1 * mu2
+
+    sigma1_sq = F.conv2d(img1 * img1, window, padding=window_size // 2, groups=channel) - mu1_sq
+    sigma2_sq = F.conv2d(img2 * img2, window, padding=window_size // 2, groups=channel) - mu2_sq
+    sigma12 = F.conv2d(img1 * img2, window, padding=window_size // 2, groups=channel) - mu1_mu2
+
+    C1 = 0.01 ** 2
+    C2 = 0.03 ** 2
+
+    ssim_map = ((2 * mu1_mu2 + C1) * (2 * sigma12 + C2)) / ((mu1_sq + mu2_sq + C1) * (sigma1_sq + sigma2_sq + C2))
+
+    if size_average:
+        return ssim_map.mean()
+    else:
+        return ssim_map.mean(1).mean(1).mean(1)
+
+
+class SSIM(torch.nn.Module):
+    def __init__(self, window_size=11, size_average=True):
+        super(SSIM, self).__init__()
+        self.window_size = window_size
+        self.size_average = size_average
+        self.channel = 1
+        self.window = create_window(window_size, self.channel)
+
+    def forward(self, img1, img2):
+        (_, channel, _, _) = img1.size()
+
+        if channel == self.channel and self.window.data.type() == img1.data.type():
+            window = self.window
+        else:
+            window = create_window(self.window_size, channel)
+
+            if img1.is_cuda:
+                window = window.cuda(img1.get_device())
+            window = window.type_as(img1)
+
+            self.window = window
+            self.channel = channel
+
+        return _ssim(img1, img2, window, self.window_size, channel, self.size_average)
+
+
+def ssim(img1, img2, window_size=11, size_average=True):
+    (_, channel, _, _) = img1.size()
+    window = create_window(window_size, channel)
+
+    if img1.is_cuda:
+        window = window.cuda(img1.get_device())
+    window = window.type_as(img1)
+
+    return _ssim(img1, img2, window, window_size, channel, size_average)
+
+# x=torch.randn(5,1,4,4)
+# y=torch.randn(5,1,4,4)
+# l1=SF_Loss()
+# loss1=l1(x,y)
+# print(loss1)
