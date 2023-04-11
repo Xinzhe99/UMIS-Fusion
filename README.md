@@ -10,11 +10,12 @@ python 3.8.13\
 numba 0.56.4
 ## Visualization
 ### Fusion Process
-![](2023-04-11-21-23-49.png)
+![2](https://user-images.githubusercontent.com/113503163/231184175-7a70169f-4602-4887-93ed-1de1de060be7.png)
 ### Post-processing
-![](2023-04-11-21-22-55.png)
+![1](https://user-images.githubusercontent.com/113503163/231184215-7083abe8-3aaa-42a2-a842-4dcd7e72bf85.png)
 ### Comparison of the effect of fusion of two pictures
-![](2023-04-11-21-25-17.png)
+![图片3](https://user-images.githubusercontent.com/113503163/231184544-b0460dbb-bfb6-43eb-abb4-47a0abbe068d.png)
+
 ## Dataset used for unsupervised training
 ### Dataset used in the article
 [Train dataset(1668 images)](https://pan.baidu.com/s/1QOToaNdLFY9kj_8YlqB_jw?pwd=8888)\
