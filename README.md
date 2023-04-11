@@ -26,7 +26,7 @@ numba 0.56.4
 [Logo data](https://pan.baidu.com/s/1Y0Dj932wiY3yePyfeEUT-A?pwd=8888)
 
 ### EFTL shooting system(Graphical user interface with shooting system and fusion functions)
-[For more](https://github.com/Xinzhe99/EFTL-System)
+If you want to make your own new dataset you can click [here](https://github.com/Xinzhe99/EFTL-System)
 
 ## Citation
 TBD
