@@ -1,5 +1,8 @@
+# -*- coding: utf-8 -*-
+# @Author  : XinZhe Xie
+# @University  : ZheJiang University
 import pandas as pd
-import DNWithCA_V2
+import network
 import myloss
 import time
 import os
@@ -15,50 +18,55 @@ import torch.optim as optim
 from torch.optim import lr_scheduler
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
-from my_data_driven import GetDataset
+from data_driven import GetDataset
 import matplotlib.pyplot as plt
-from datetime import datetime
+
 
 def parse_args():  # 参数解析器
     parser = argparse.ArgumentParser()
     # 增加属性
-    parser.add_argument('--name', default='IMG1_100epoch_1_3_1_2_no_medblur', help='model name: (default: arch+timestamp)')
-    parser.add_argument('--epochs', default=100, type=int)  # 原来是100
+    parser.add_argument('--name', default='tbd',help='Output folder name')
+    parser.add_argument('--epochs', default=60, type=int)
     parser.add_argument('--batch_size', default=16, type=int)
-    parser.add_argument('--lr', '--learning-rate', default=5e-4, type=float)  # 5e-4
-    # parser.add_argument('--weight', default=[0.16, 0.84], type=float)
-    parser.add_argument('--gamma', default=0.9, type=float)  # ExponentialLR gamma
+    parser.add_argument('--lr', '--learning-rate', default=5e-4, type=float)
+    parser.add_argument('--gamma', default=0.9, type=float)
     parser.add_argument('--betas', default=(0.9, 0.999), type=tuple)
     parser.add_argument('--eps', default=1e-8, type=float)
-    parser.add_argument('--weight-decay', default=5e-4, type=float)  # 5e-4
-    parser.add_argument('--training_dir',default="train_dataset/",type=str)
-    parser.add_argument('--test_dir', default="test_dataset/", type=str)
+    parser.add_argument('--weight-decay', default=5e-4, type=float)
+    parser.add_argument('--training_dir_name',default="train_dataset",type=str)
+    parser.add_argument('--test_dir_name', default="test_dataset", type=str)
     parser.add_argument('--loss_weight',default=[1,3,1,2],type=list,help='mse;ssim;gra;sf')
-    parser.add_argument('--source_type', default='*.Bmp', type=str)
-    args = parser.parse_args()  # 属性给与args实例：add_argument 返回到 args 子类实例
+    parser.add_argument('--source_type_train', default='*.Bmp', type=str)
+    parser.add_argument('--source_type_test', default='*.Bmp', type=str)
+    args = parser.parse_args()
     return args
 
 def main():
     args = parse_args()
     if not os.path.exists('models/%s' % args.name):
-        os.makedirs('models/%s' % args.name)  # 创建文件夹保存模型
+        os.makedirs('models/%s' % args.name)
     print('Config -----')
     for arg in vars(args):
-        print('%s: %s' % (arg, getattr(args, arg)))  # 打印参数配置
+        print('%s: %s' % (arg, getattr(args, arg)))
     print('------------')
-    with open('models/%s/args.txt' % args.name, 'w') as f:  # 写入参数文件
+    with open('models/%s/args.txt' % args.name, 'w') as f:
         for arg in vars(args):
             print('%s: %s' % (arg, getattr(args, arg)), file=f)
     joblib.dump(args, 'models/%s/args.pkl' % args.name)
     cudnn.benchmark = True
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
     if torch.cuda.is_available():
         print('GPU Mode Acitavted')
     else:
         print('CPU Mode Acitavted')
+
+    root_path=os.getcwd()
+    folder_dataset_train_path=os.path.join(root_path,args.training_dir_name,args.source_type_train)
+    folder_dataset_test=os.path.join(root_path,args.test_dir_name,args.source_type_test)
+    print(folder_dataset_train_path)
     # 定义文件dataset
-    folder_dataset_train = glob.glob(args.training_dir + args.source_type)
-    folder_dataset_test = glob.glob(args.test_dir + args.source_type)
+    folder_dataset_train = glob.glob(folder_dataset_train_path)
+    folder_dataset_test = glob.glob(folder_dataset_test)
     # 定义预处理方式
     transform_train = transforms.Compose([transforms.ToTensor(),
                                           transforms.Normalize((0.5), (0.5))])
@@ -78,18 +86,25 @@ def main():
     test_loader = DataLoader(dataset_test,
                              shuffle=True,
                              batch_size=args.batch_size)
-    net = DNWithCA_V2.DNWithCA(trainmode=True)
-    if torch.cuda.is_available():
-        net=net.cuda()
-        net.cuda()
+    model = network.DNWithCA(trainmode=True)
+
+
+    num_gpus = torch.cuda.device_count()
+
+    if num_gpus > 1:
+        model = nn.DataParallel(model)
+        device = torch.device("cuda")
     else:
-        net=net
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    model.to(device)
+
     critertion1 = nn.MSELoss()
     critertion2= myloss.SSIM()
     critertion3=myloss.Gradient_Loss()
     critertion4 = myloss.SF_Loss()
     #Adam
-    optimizer = optim.Adam(net.parameters(), lr=args.lr,
+    optimizer = optim.Adam(model.parameters(), lr=args.lr,
                            betas=args.betas, eps=args.eps, weight_decay=args.weight_decay)  # Adam法优化,filter是为了固定部分参数
     scheduler=lr_scheduler.ExponentialLR(optimizer,gamma=args.gamma)
 
@@ -105,15 +120,14 @@ def main():
     val_loss_list=[]
     #####
     for epoch in range(args.epochs):
-        #训练
-        net.train()
+        model.train()
         t1=time.time()
         for i,in_img in tqdm(enumerate(train_loader),total=len(train_loader)):
             if torch.cuda.is_available():
                 in_img=in_img.cuda()
             else:
-                in_img = in_imghttps://github.com/Xinzhe99/temp_one_mask_fusion/blob/main/train
-            net_out=net(in_img)
+                in_img = in_img
+            net_out=model(in_img)
             loss1=critertion1(in_img,net_out)
             loss2=1-critertion2(in_img,net_out)
             loss3=critertion3(in_img,net_out)
@@ -126,13 +140,14 @@ def main():
             print("[epoch: %3d/%3d, progress: %5d/%5d] train loss: %5f " % (epoch + 1, args.epochs, (i + 1) * args.batch_size, len(dataset_train), loss.item()))
         print('finish train epoch: [{}/{}] costs:{}  avg_loss:{}'.format(epoch + 1 ,args.epochs,(time.time() - t1),(running_train_loss/len(train_loader))))
         scheduler.step()
-        if (epoch + 1) % 20 == 0:#每20个epoch记录一次
-            torch.save(net.state_dict(), 'models/{}/model_{}.pth'.format(args.name,(epoch + 1)))
+        if (epoch + 1) % 20 == 0:
+            #如果改成：torch.save(model.module.state_dict(), PATH)，在cpu上推理也要加torch.nn.DataParallel，才不会报错！todo
+            torch.save(model.state_dict(), 'models/{}/model_{}.pth'.format(args.name,(epoch + 1)))
         train_loss_list.append(running_train_loss/len(train_loader))
         train_log = OrderedDict([('train_loss', running_train_loss/len(train_loader))])
         running_train_loss = 0
         #验证
-        net.eval()
+        model.eval()
         with torch.no_grad():
             t1 = time.time()
             for i, in_img in tqdm(enumerate(test_loader), total=len(test_loader)):
@@ -140,7 +155,7 @@ def main():
                     in_img = in_img.cuda()
                 else:
                     in_img = in_img
-                net_out = net(in_img)
+                net_out = model(in_img)
                 loss1 = critertion1(in_img, net_out)
                 loss2 = 1-critertion2(in_img, net_out)
                 loss3 = critertion3(in_img, net_out)
@@ -158,9 +173,9 @@ def main():
             scheduler.get_last_lr(),
             train_log['train_loss'],
             val_log['val_loss'],
-        ], index=['epoch', 'lr', 'train_loss', 'val_loss'])  # Series创建字典
-        log = pd.concat([log, tmp], ignore_index=True)  # 新写的
-        log.to_csv('models/%s/log.csv' % args.name, index=False)  # log:训练的日志记录
+        ], index=['epoch', 'lr', 'train_loss', 'val_loss'])
+        log = pd.concat([log, tmp], ignore_index=True)
+        log.to_csv('models/%s/log.csv' % args.name, index=False)
     #visialize part2
     x1 = range(0, args.epochs)
     x2 = range(0, args.epochs)
@@ -172,6 +187,6 @@ def main():
     plt.ylabel('loss')
     plt.xlabel('epoch')
     plt.legend(["train", "val"], shadow=True, fancybox="blue")
-    plt.savefig('./result/{}/train_loss_pic.jpg'.format(args.name))
+    plt.savefig('./models/{}/train_loss_pic.jpg'.format(args.name))
 if __name__ == '__main__':
     main()
