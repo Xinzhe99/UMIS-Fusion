@@ -1,1 +1,30 @@
-# temp_one_mask_fusion
+# UMS-Fusion
+**Unsupervised learning for multi-focused image stack fusion**
+## Abstract
+Multi-focus image fusion is an image processing method to generate a fully clarity image from two or more images, which solves the problem that optical lenses cannot obtain a full-frame clarity image due to physical limitations. Existing methods can achieve the fusion of two images with complementary clear and blurred regions by generating a binarized decision map or by direct end-to-end fusion. However, when we need to fuse a multi-focused image stack instead of two complementary image pairs, these fusion methods pose many problems, such as fusion failure, color shifts, etc. In this study, we propose a highly versatile and efficient method for fusing multi-focused image stacks using an unsupervised deep learning approach. Our proposed method includes the steps of acquiring deep features of an image with a neural network, calculating the pixel-level spatial frequency gradients of deep features, fusion decision matrix generation and optimization, and then generating a panoramic deep and clear image. The experimental results show that the proposed fusion method can achieve better fusion results than the professional depth-of-field stack software. 
+
+## Requirements
+torch 1.12.1\
+torchvision 0.13.1\
+python 3.8.13\
+numba 0.56.4
+## Visualization
+### Fusion Process
+![](2023-04-11-21-23-49.png)
+### Post-processing
+![](2023-04-11-21-22-55.png)
+### Comparison of the effect of fusion of two pictures
+![](2023-04-11-21-25-17.png)
+## Dataset used for unsupervised training
+### Dataset used in the article
+[Train dataset(1668 images)](https://pan.baidu.com/s/1QOToaNdLFY9kj_8YlqB_jw?pwd=8888)\
+[Test dataset(214 images)](https://pan.baidu.com/s/1agQvFWlkx-tNA_h_nZDKSA?pwd=8888)
+### New Dataset
+[Dataset(2000 images without split)](https://pan.baidu.com/s/1KdytgF-v43MdzROpdw7Lsw?pwd=8888)
+### EFTL shooting system(Graphical user interface with shooting system and fusion functions)
+[For more](https://github.com/Xinzhe99/EFTL-System)
+
+## Citation
+TBD
+## Recommendation
+TBD
