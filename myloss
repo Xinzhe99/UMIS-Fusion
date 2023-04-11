@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+# @Author  : XinZhe Xie
+# @University  : ZheJiang University
 import torch.nn as nn
 import torch
 import torch.nn.functional as F
@@ -120,9 +123,3 @@ def ssim(img1, img2, window_size=11, size_average=True):
     window = window.type_as(img1)
 
     return _ssim(img1, img2, window, window_size, channel, size_average)
-
-# x=torch.randn(5,1,4,4)
-# y=torch.randn(5,1,4,4)
-# l1=SF_Loss()
-# loss1=l1(x,y)
-# print(loss1)
