@@ -52,10 +52,8 @@ def entropy(image):
 
 
 if __name__ == '__main__':
-    # img = cv2.imread(r'E:\Microscopic_image_stack_fusion\result\for_paper_origin_1_3_0_0\1_3_0_0.jpg')
-    # img=cv2.imread(r'E:\Microscopic_image_stack_fusion\result\for_paper_origin_1_3_1_0\1310.jpg')
-    # img=cv2.imread(r'E:\Microscopic_image_stack_fusion\result\for_paper_origin_1_3_0_2\1302.jpg')
-    img=cv2.imread(r'E:\Microscopic_image_stack_fusion\result\for_paper_newmodel_noatt\fusion_result2023_04_03_12_44_47.jpg')
+
+    img=cv2.imread(r'xxx')
     gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     (mean, std) = cv2.meanStdDev(gray_img)
 
