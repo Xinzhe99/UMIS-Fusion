@@ -9,7 +9,7 @@ from torchvision import transforms
 import time
 import numpy as np
 import os
-import network
+import unetplusplus
 import glob
 import cv2
 from PIL import Image
@@ -19,13 +19,13 @@ from numba import jit
 from numba.typed import List
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', default='tbd',help='Output folder name')
-    parser.add_argument('--fuse_Data_dir', default="tbd/", type=str,help='Enter the folder path of the image stack, each image name is best sorted by number e.g. 1.jpg,2.jpg......')
-    parser.add_argument('--dict_path',default='tbd.pth', type=str,help='model path')
-    parser.add_argument('--output_img_width', default='tbd', type=int,help='output width')
-    parser.add_argument('--output_img_height', default='tbd', type=int,help='output height')
+    parser.add_argument('--name', default='UMIS-Fusion',help='Output folder name')
+    parser.add_argument('--fuse_Data_dir', default="xxxx", type=str,help='Enter the folder path of the image stack, each image name is best sorted by number e.g. 1.jpg,2.jpg......')
+    parser.add_argument('--dict_path',default='xxxx.pth', type=str,help='model path')
+    parser.add_argument('--output_img_width', default='717', type=int,help='output width')
+    parser.add_argument('--output_img_height', default='600', type=int,help='output height')
     parser.add_argument('--RemoveHighFreNoise', default=False, type=bool,help='remove noise,usually not used')
-    parser.add_argument('--use_postprocess', default=False, type=bool,help='Whether to turn on post-processing')
+    parser.add_argument('--use_postprocess', default=True, type=bool,help='Whether to turn on post-processing')
     parser.add_argument('--use_fuzzy_optimization', default=False, type=bool,help='Whether to turn on fuzzy optimization (need to turn on post-processing at the same time)')
     parser.add_argument('--fuse_result_type', default='jpg', type=str,help='Format of output images')
     parser.add_argument('--source_type', default='*.jpg', type=str,help='Format of input images')
@@ -100,20 +100,25 @@ if __name__ == '__main__':
         print('CPU Mode Acitavted')
     if not os.path.exists('result/%s'% args.name):
         os.makedirs('result/%s' % args.name)
-    pic_sequence_list = glob.glob(args.fuse_Data_dir + args.source_type)
+    pic_sequence_list = glob.glob(args.fuse_Data_dir +'/'+ args.source_type)
     pic_sequence_list.sort(key=lambda x: int(str(re.findall("\d+", x.split('/')[-1])[-1])))#Sort by the number in the file name
+
     img_cv_list=[None]*(len(pic_sequence_list))
     img_list=[None]*(len(pic_sequence_list))
     sf_list=[None] * (len(pic_sequence_list))
 
-    model = network.DNWithCA(trainmode=False)
+    # model = network.DNWithCA(trainmode=False)
+    model = unetplusplus.NestedUNet(train_mode=False)
+    # model = sesf_my.SESFuseNet(train_mode=False)
     num_gpus = torch.cuda.device_count()
-
-    # model = nn.DataParallel(model)#todo Parallelization training
     if num_gpus > 1:
         device = torch.device("cuda")
+        model = nn.DataParallel(model)
+        model.cuda()
     else:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+
 
     data_transforms = transforms.Compose([
         transforms.ToTensor(),
