@@ -61,11 +61,16 @@ def std_number(image):
     img_array = np.array(image)
     return np.std(img_array)
 
+
+
+
 if __name__ == '__main__':
 
-    input_folder = r"path"#todo need set
-    output_path_root =os.path.join(os.path.expanduser("~"), 'Desktop')
-    output_name='name.xlsx'#todo need set
+    input_folder = r"xxxxxx"#todo need set
+    output_path_root =r"xxxxxxx"
+    if not os.path.exists(output_path_root):
+        os.makedirs(output_path_root)  # 创建文件夹
+    output_name='compare.xlsx'#todo need set
     output_path=os.path.join(output_path_root,output_name)
     if not os.path.exists(os.path.join(output_path_root,output_name)):
         with open(output_name, 'w') as f:
