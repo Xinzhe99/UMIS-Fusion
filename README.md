@@ -1,7 +1,7 @@
 # UMIS-Fusion
 **Unsupervised learning for multi-focused image stack fusion**
 ## Abstract
-Multi-focus image fusion is an image processing method to generate a fully clarity image from two or more images, which solves the problem that optical lenses cannot obtain a full-frame clarity image due to physical limitations. Existing methods can achieve the fusion of two images with complementary clear and blurred regions by generating a binarized decision map or by direct end-to-end fusion. However, when we need to fuse a multi-focused image stack instead of two complementary image pairs, these fusion methods pose many problems, such as fusion failure, color shifts, etc. In this study, we propose a highly versatile and efficient method for fusing multi-focused image stacks using an unsupervised deep learning approach. Our proposed method includes the steps of acquiring deep features of an image with a neural network, calculating the pixel-level spatial frequency gradients of deep features, fusion decision matrix generation and optimization, and then generating a panoramic deep and clear image. The experimental results show that the proposed fusion method can achieve better fusion results than the professional depth-of-field stack software. 
+Multi-focus image fusion is an image processing method used to generate full-clear images from two or more images, which solves the problem of optical lenses that cannot obtain full-clear images due to physical limitations. Existing methods focus on fusing complementary multi-focus image pairs by generating binarized decision maps or end-to-end fusion. However, it is more common to fuse multiple images focused at different areas. Fusing image pairs is not enough to conform to realistic demands, moreover, simply repeatedly using these fusion methods for image pairs to fuse image stacks can cause many problems such as fusion errors and color shifts. To overcome these problems, this study proposes a network based on unsupervised deep learning, named UMIS-fusion, to fuse multi-focused image stacks on different application fields with variable sizes and numbers. The neural network is concentrated on the deep spatial frequency gradient features of image stacks, and a customized loss function group is proposed to grab the accurate features from the spatial frequency gradient. Furthermore, compared to the best results of commercial software, the fusion results of the proposed network have comparable speed, but achieve 1.39 better clarity performance on both Spatial Frequency and Average Gradient.
 
 ## Requirements
 torch 1.12.1\
@@ -10,9 +10,9 @@ python 3.8.13\
 numba 0.56.4
 ## Visualization
 ### Fusion Process
-![2](https://user-images.githubusercontent.com/113503163/231184175-7a70169f-4602-4887-93ed-1de1de060be7.png)
-### Post-processing
-![1](https://user-images.githubusercontent.com/113503163/231184215-7083abe8-3aaa-42a2-a842-4dcd7e72bf85.png)
+![Schematic diagram of the proposed method](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/60129bba-e83d-41b3-b72f-9e5aa6e563f5)
+### Network
+![The training block diagram of the network](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/0cba1928-951d-4c90-9677-15313e86e4d0)
 ### Comparison of the effect of fusion of two pictures
 ![图片3](https://user-images.githubusercontent.com/113503163/231184544-b0460dbb-bfb6-43eb-abb4-47a0abbe068d.png)
 
