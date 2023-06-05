@@ -37,11 +37,6 @@ numba 0.56.4
 [Logo data](https://pan.baidu.com/s/1Y0Dj932wiY3yePyfeEUT-A?pwd=8888)
 ![image](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/d8d1122f-e369-4407-8d5f-66547eac059c)
 
-### SESF:45 decisionmaps
-[original 45 decision maps](https://pan.baidu.com/s/1Y0Dj932wiY3yePyfeEUT-A?pwd=8888](https://pan.baidu.com/s/1arQz0RHxGzxwCK4jjuFI8A?pwd=8888)
-![decisionmap](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/e8be20ee-f03b-474d-a627-a257988d3d30)
-![image](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/fcb2b5a6-e543-497f-ba1a-d727ef1cba98)
-
 ### EFTL shooting system(Graphical user interface with shooting system and fusion functions)
 If you want to make your own new dataset you can click [here](https://github.com/Xinzhe99/EFTL-System)
 
