@@ -11,31 +11,29 @@ python 3.8.13\
 numba 0.56.4
 ## Visualization
 ### Fusion Process
-![Schematic diagram of the proposed method](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/60129bba-e83d-41b3-b72f-9e5aa6e563f5)
+![Schematic diagram of the proposed method](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/6889c2ff-e355-40ce-86d9-e701d3518caf)
 ### Network
-![The training block diagram of the network](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/0cba1928-951d-4c90-9677-15313e86e4d0)
+![The training block diagram of the network](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/05e8f694-8882-4731-a380-60dfc1858ca2)
 ### The fusion result of three professional image stacking software
-![The fusion result of three professional image stacking software](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/966d4ad9-612b-4768-a860-f7096b79b101)
+![The fusion result of three professional image stacking software](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/f292e5de-069f-4ec5-b30a-5bde9cf76476)
 ### Visualization of layer selection
-![Visualization of layer selection](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/6ce3a438-05b4-4aab-8179-5f9cf5afce1f)
+![Visualization of layer selection](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/c8823ad2-68bf-4d8b-9e0b-84623aaafa9a)
 ### Visualization of partial fusion results on the Lytro dataset
-![Visualization of partial fusion results on the Lytro dataset](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/52c8d287-36f1-41c7-8ebb-63dedbd29456)
+![Visualization of partial fusion results on the Lytro dataset](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/69937130-7469-4238-9878-457f71d7476a)
 
 ## Dataset
 ### Dataset used in the article
 [Train dataset(1668 images)](https://pan.baidu.com/s/1QOToaNdLFY9kj_8YlqB_jw?pwd=8888)\
-![Part of the dataset used for network training (after pre-processing)](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/f1648315-5ad4-4af8-b2e9-6bc82e4de4fb)
 
-[Test dataset(214 images)](https://pan.baidu.com/s/1agQvFWlkx-tNA_h_nZDKSA?pwd=8888)
-![image](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/a45b8085-0704-40f2-b044-062d7dc02d44)
+[Test dataset(214 images)](https://pan.baidu.com/s/1agQvFWlkx-tNA_h_nZDKSA?pwd=8888)\
 
 ### New Dataset(Better light conditions)
-[Dataset(2000 images without split)](https://pan.baidu.com/s/1KdytgF-v43MdzROpdw7Lsw?pwd=8888)
-![image](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/64e7233e-d292-45de-bc98-669a7a07c0ff)
+[Dataset(2000 images without split)](https://pan.baidu.com/s/1KdytgF-v43MdzROpdw7Lsw?pwd=8888)\
+
 
 ### Zhejiang University Logo
-[Logo data](https://pan.baidu.com/s/1Y0Dj932wiY3yePyfeEUT-A?pwd=8888)
-![image](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/d8d1122f-e369-4407-8d5f-66547eac059c)
+[Logo data](https://pan.baidu.com/s/1Y0Dj932wiY3yePyfeEUT-A?pwd=8888)\
+
 
 ### EFTL shooting system(Graphical user interface with shooting system and fusion functions)
 If you want to make your own new dataset you can click [here](https://github.com/Xinzhe99/EFTL-System)
