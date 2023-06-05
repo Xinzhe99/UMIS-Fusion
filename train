@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 # @Author  : XinZhe Xie
 # @University  : ZheJiang University
-import pandas as pd
-import network
+
 import myloss
 import time
 import os
@@ -10,7 +9,6 @@ import argparse
 from tqdm import tqdm
 import joblib
 import glob
-from collections import OrderedDict
 import torch
 import torch.backends.cudnn as cudnn
 import torch.nn as nn
@@ -19,16 +17,16 @@ from torch.optim import lr_scheduler
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 from data_driven import GetDataset
-import matplotlib.pyplot as plt
-
-
+import unetplusplus
+from tensorboardX import SummaryWriter
 def parse_args():  # 参数解析器
     parser = argparse.ArgumentParser()
     # 增加属性
-    parser.add_argument('--name', default='tbd',help='Output folder name')
-    parser.add_argument('--epochs', default=60, type=int)
-    parser.add_argument('--batch_size', default=16, type=int)
-    parser.add_argument('--lr', '--learning-rate', default=5e-4, type=float)
+    parser.add_argument('--name', default='UMIS_train',help='Output folder name')
+    parser.add_argument('--epochs', default=80, type=int)
+    parser.add_argument('--model_save_fre', type=int, default=10, help='model save frequence (default: 5)')
+    parser.add_argument('--batch_size', default=8, type=int)
+    parser.add_argument('--lr', '--learning-rate', default=1e-4, type=float)
     parser.add_argument('--gamma', default=0.9, type=float)
     parser.add_argument('--betas', default=(0.9, 0.999), type=tuple)
     parser.add_argument('--eps', default=1e-8, type=float)
@@ -43,6 +41,7 @@ def parse_args():  # 参数解析器
 
 def main():
     args = parse_args()
+    writer = SummaryWriter()
     if not os.path.exists('models/%s' % args.name):
         os.makedirs('models/%s' % args.name)
     print('Config -----')
@@ -68,14 +67,17 @@ def main():
     folder_dataset_train = glob.glob(folder_dataset_train_path)
     folder_dataset_test = glob.glob(folder_dataset_test)
     # 定义预处理方式
-    transform_train = transforms.Compose([transforms.ToTensor(),
-                                          transforms.Normalize((0.5), (0.5))])
-    transform_test = transforms.Compose([transforms.ToTensor(),
-                                         transforms.Normalize((0.5), (0.5))])
+    transform_train = transforms.Compose([transforms.ToTensor(),transforms.Normalize([0.5], [0.5])])
+    transform_test = transforms.Compose([transforms.ToTensor(),transforms.Normalize([0.5], [0.5])])
+    # transform_train = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5]),
+    #                                       transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5,
+    #                                                              hue=0.5)])
+    # transform_test = transforms.Compose([transforms.ToTensor(), transforms.Normalize([0.5], [0.5]),
+    #                                      transforms.ColorJitter(brightness=0.5, contrast=0.5, saturation=0.5, hue=0.5)])
     # 定义数据集
     dataset_train = GetDataset(imageFolderDataset=folder_dataset_train,
                                transform=transform_train)
-    dataset_test = GetDataset(imageFolderDataset=folder_dataset_test,
+    dataset_test = GetDataset(imageFolderDataset=folder_dataset_test[0:16],
                               transform=transform_test)
 
     # 数据集loader
@@ -86,107 +88,95 @@ def main():
     test_loader = DataLoader(dataset_test,
                              shuffle=True,
                              batch_size=args.batch_size)
-    model = network.DNWithCA(trainmode=True)
+    # model = network.DNWithCA(trainmode=True)
+    # model = orinet_reviseatt.DNWithCA(trainmode=True)
+    model = unetplusplus.NestedUNet(train_mode=True)
+    # model=sesf_my.SESFuseNet(train_mode=True)
 
-
-    num_gpus = torch.cuda.device_count()
-
-    if num_gpus > 1:
+    if torch.cuda.device_count() > 1:
         model = nn.DataParallel(model)
-        device = torch.device("cuda")
-    else:
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model.cuda()
 
-    model.to(device)
-
-    critertion1 = nn.MSELoss()
-    critertion2= myloss.SSIM()
-    critertion3=myloss.Gradient_Loss()
-    critertion4 = myloss.SF_Loss()
     #Adam
-    optimizer = optim.Adam(model.parameters(), lr=args.lr,
-                           betas=args.betas, eps=args.eps, weight_decay=args.weight_decay)  # Adam法优化,filter是为了固定部分参数
+    optimizer = optim.AdamW(model.parameters(), lr=args.lr,
+                           betas=args.betas, eps=args.eps, weight_decay=args.weight_decay)
     scheduler=lr_scheduler.ExponentialLR(optimizer,gamma=args.gamma)
 
-    running_train_loss = 0
-    running_val_loss = 0
-    log = pd.DataFrame(index=[],
-                       columns=['epoch',
-                                'lr',
-                                'train_loss',
-                                'val_loss'])
-    #visialize
-    train_loss_list = []
-    val_loss_list=[]
+    def train(img):
+        model.train()
+        if torch.cuda.is_available():
+            img = img.cuda()
+        critertion1 = nn.MSELoss()
+        critertion2 = myloss.SSIM()
+        critertion3 = myloss.Gradient_Loss()
+        critertion4 = myloss.SF_Loss()
+
+        net_out = model(img)
+        loss1 = critertion1(img, net_out)
+        loss2 = 1 - critertion2(img, net_out)
+        loss3 = critertion3(img, net_out)
+        loss4 = critertion4(img, net_out)
+        loss=args.loss_weight[0]*loss1+args.loss_weight[1]*loss2+args.loss_weight[2]*loss3+args.loss_weight[3]*loss4
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        return loss
+
+    def test(img):
+        model.eval()
+        if torch.cuda.is_available():
+            img = img.cuda()
+        critertion1 = nn.MSELoss()
+        critertion2 = myloss.SSIM()
+        critertion3 = myloss.Gradient_Loss()
+        critertion4 = myloss.SF_Loss()
+
+        net_out = model(img)
+        loss1 = critertion1(img, net_out)
+        loss2 = 1 - critertion2(img, net_out)
+        loss3 = critertion3(img, net_out)
+        loss4 = critertion4(img, net_out)
+        loss = args.loss_weight[0] * loss1 + args.loss_weight[1] * loss2 + args.loss_weight[2] * loss3 + \
+               args.loss_weight[3] * loss4
+
+        return loss
     #####
     for epoch in range(args.epochs):
-        model.train()
+
         t1=time.time()
-        for i,in_img in tqdm(enumerate(train_loader),total=len(train_loader)):
-            if torch.cuda.is_available():
-                in_img=in_img.cuda()
-            else:
-                in_img = in_img
-            net_out=model(in_img)
-            loss1=critertion1(in_img,net_out)
-            loss2=1-critertion2(in_img,net_out)
-            loss3=critertion3(in_img,net_out)
-            loss4 = critertion4(in_img, net_out)
-            loss=args.loss_weight[0]*loss1+args.loss_weight[1]*loss2+args.loss_weight[2]*loss3+args.loss_weight[3]*loss4
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
-            running_train_loss+=loss.item()
-            print("[epoch: %3d/%3d, progress: %5d/%5d] train loss: %5f " % (epoch + 1, args.epochs, (i + 1) * args.batch_size, len(dataset_train), loss.item()))
+        running_train_loss = 0
+        running_val_loss = 0
+        tqdm_bar_train = tqdm(train_loader)
+        for batch_idx, img in enumerate(tqdm_bar_train):
+            train_loss = train(img)
+            torch.cuda.synchronize()  # 确保数据正确
+            running_train_loss += train_loss.item()
+            tqdm_bar_train.set_description(
+                f'Epoch {epoch}, Step {batch_idx}, Train Loss {train_loss.item():.4f}')
         print('finish train epoch: [{}/{}] costs:{}  avg_loss:{}'.format(epoch + 1 ,args.epochs,(time.time() - t1),(running_train_loss/len(train_loader))))
         scheduler.step()
-        if (epoch + 1) % 20 == 0:
-            #如果改成：torch.save(model.module.state_dict(), PATH)，在cpu上推理也要加torch.nn.DataParallel，才不会报错！todo
+        if (epoch + 1) % args.model_save_fre == 0:
             torch.save(model.state_dict(), 'models/{}/model_{}.pth'.format(args.name,(epoch + 1)))
-        train_loss_list.append(running_train_loss/len(train_loader))
-        train_log = OrderedDict([('train_loss', running_train_loss/len(train_loader))])
-        running_train_loss = 0
-        #验证
-        model.eval()
-        with torch.no_grad():
-            t1 = time.time()
-            for i, in_img in tqdm(enumerate(test_loader), total=len(test_loader)):
-                if torch.cuda.is_available():
-                    in_img = in_img.cuda()
-                else:
-                    in_img = in_img
-                net_out = model(in_img)
-                loss1 = critertion1(in_img, net_out)
-                loss2 = 1-critertion2(in_img, net_out)
-                loss3 = critertion3(in_img, net_out)
-                loss4 = critertion4(in_img, net_out)
-                loss=args.loss_weight[0]*loss1+args.loss_weight[1]*loss2+args.loss_weight[2]*loss3+args.loss_weight[3]*loss4
-                running_val_loss += loss.item()
-                print("[epoch: %3d/%3d, batch: %5d/%5d] test loss: %5f " % (epoch + 1, args.epochs, (i + 1) * args.batch_size, len(dataset_test), loss.item()))
-        val_log = OrderedDict([('val_loss', running_val_loss / len(test_loader))])
-        val_loss_list.append(running_val_loss / len(test_loader))
-        print('finish val epoch: [{}/{}] costs:{}  avg_loss:{}'.format((epoch + 1),args.epochs,(time.time() - t1),(running_val_loss/len(test_loader))))
-        running_val_loss = 0
+        writer.add_scalar('training loss(epoch)', running_train_loss / len(train_loader), epoch)
 
-        tmp = pd.Series([
-            epoch + 1,
-            scheduler.get_last_lr(),
-            train_log['train_loss'],
-            val_log['val_loss'],
-        ], index=['epoch', 'lr', 'train_loss', 'val_loss'])
-        log = pd.concat([log, tmp], ignore_index=True)
-        log.to_csv('models/%s/log.csv' % args.name, index=False)
-    #visialize part2
-    x1 = range(0, args.epochs)
-    x2 = range(0, args.epochs)
-    y1 = train_loss_list
-    y2 = val_loss_list
-    plt.plot(x1, y1)
-    plt.plot(x2, y2)
-    plt.title('train_loss vs val_loss')
-    plt.ylabel('loss')
-    plt.xlabel('epoch')
-    plt.legend(["train", "val"], shadow=True, fancybox="blue")
-    plt.savefig('./models/{}/train_loss_pic.jpg'.format(args.name))
+        #验证
+        best_loss = float('inf')  # For save best
+        best_epoch = 0
+
+        t1 = time.time()
+        tqdm_bar_val = tqdm(test_loader)
+        for batch_idx, img in enumerate(tqdm_bar_val):
+            val_loss = test(img)
+            running_val_loss += val_loss.item()
+            tqdm_bar_val.set_description(
+                f'Epoch {epoch}, Step {batch_idx}, Test Loss {val_loss.item():.4f}')
+        writer.add_scalar('val loss(epoch)', running_val_loss / len(test_loader), epoch)
+        print('finish val epoch: [{}/{}] costs:{}  avg_loss:{}'.format((epoch + 1),args.epochs,(time.time() - t1),(running_val_loss/len(test_loader))))
+        if running_val_loss < best_loss:
+            best_loss = running_val_loss
+            best_epoch=epoch
+            best_model = model.state_dict()
+    writer.close()
+    torch.save(best_model, 'models/{}/bestmodel_{}.pth'.format(args.name, str(best_epoch)))
 if __name__ == '__main__':
     main()
