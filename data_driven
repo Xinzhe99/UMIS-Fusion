@@ -1,8 +1,11 @@
+# -*- coding: utf-8 -*-
+# @Author  : XinZhe Xie
+# @University  : ZheJiang University
 import torchvision.transforms as transforms
 import numpy as np
 from torch.utils.data import Dataset
-from PIL import Image,ImageOps,ImageFilter
-import cv2
+from PIL import Image
+
 def rotate(image, s):
     if s == 0:
         image = image
@@ -20,12 +23,8 @@ class GetDataset(Dataset):
         self.transform = transform
     def __getitem__(self, index):
         img = self.imageFolderDataset[index]
-        img = Image.open(img).resize((820,600)).convert('L')
-        img = ImageOps.equalize(img)#equalize
-        #
-        # img_eq_np = np.array(img_eq)#to np for cv
-        # img_med = cv2.medianBlur(img_eq_np, 5)#med
-        # img = Image.fromarray(img_med.astype('uint8'))#to pil
+        img = Image.open(img).resize((717,600)).convert('L')
+
         # ------------------data enhancement--------------------------#
         j = np.random.randint(0, 3, size=1)  # 随机0-3之间的整数
         img = rotate(img, j)
@@ -35,4 +34,3 @@ class GetDataset(Dataset):
             return img
     def __len__(self):
         return len(self.imageFolderDataset)
-
