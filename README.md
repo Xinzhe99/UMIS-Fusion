@@ -17,7 +17,7 @@ numba 0.56.4
 ![The fusion result of three professional image stacking software](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/966d4ad9-612b-4768-a860-f7096b79b101)
 ### Visualization of layer selection
 ![Visualization of layer selection](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/6ce3a438-05b4-4aab-8179-5f9cf5afce1f)
-###Visualization of partial fusion results on the Lytro dataset
+### Visualization of partial fusion results on the Lytro dataset
 ![Visualization of partial fusion results on the Lytro dataset](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/52c8d287-36f1-41c7-8ebb-63dedbd29456)
 
 ## Dataset
