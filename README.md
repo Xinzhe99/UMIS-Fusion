@@ -26,8 +26,12 @@ numba 0.56.4
 ![Part of the dataset used for network training (after pre-processing)](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/f1648315-5ad4-4af8-b2e9-6bc82e4de4fb)
 
 [Test dataset(214 images)](https://pan.baidu.com/s/1agQvFWlkx-tNA_h_nZDKSA?pwd=8888)
-### New Dataset
+![image](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/a45b8085-0704-40f2-b044-062d7dc02d44)
+
+### New Dataset(Better light conditions)
 [Dataset(2000 images without split)](https://pan.baidu.com/s/1KdytgF-v43MdzROpdw7Lsw?pwd=8888)
+![image](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/64e7233e-d292-45de-bc98-669a7a07c0ff)
+
 ### Zhejiang University Logo
 [Logo data](https://pan.baidu.com/s/1Y0Dj932wiY3yePyfeEUT-A?pwd=8888)
 ![image](https://github.com/Xinzhe99/UMIS-Fusion/assets/113503163/d8d1122f-e369-4407-8d5f-66547eac059c)
