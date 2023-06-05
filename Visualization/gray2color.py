@@ -7,11 +7,11 @@ import numpy as np
 # 读取灰度图
 # mark_np1=np.load('decision_map_np2022_12_20_22_14_22.npy').astype(np.uint8)
 # mark_np2=np.load('decision_map_np2022_12_20_22_14_30optimized.npy').astype(np.uint8)
-mark_np1=np.load(r'E:\Microscopic_image_stack_fusion\result\for_paper\无任何后处理.npy').resize((717,600)).astype(np.uint8)
-mark_np2=np.load(r'E:\Microscopic_image_stack_fusion\result\for_paper\有后处理无fuzzy.npy').astype(np.uint8)
-mark_np3=np.load(r'E:\Microscopic_image_stack_fusion\result\for_paper\fuzzy处理后.npy').astype(np.uint8)
-mark_np4=np.load(r'E:\Microscopic_image_stack_fusion\result\for_paper_origin_1_3_0_0\1_3_0_0.npy').astype(np.uint8)
-mark=mark_np1#todo Need set
+mark_np1=np.load(r'E:\Microscopic_image_stack_fusion\result\FORFIG_XH_post_v2\decision_map_np2023_06_05_13_44_54.npy').astype(np.uint8)
+mark_np2=np.load(r'E:\Microscopic_image_stack_fusion\result\FORFIG_XH_post_v2\decision_map_np2023_06_05_13_44_57optimized.npy').astype(np.uint8)
+# mark_np3=np.load(r'E:\Microscopic_image_stack_fusion\result\for_paper\fuzzy处理后.npy').astype(np.uint8)
+# mark_np4=np.load(r'E:\Microscopic_image_stack_fusion\result\for_paper_origin_1_3_0_0\1_3_0_0.npy').astype(np.uint8)
+mark=mark_np2#todo Need set
 
 plt.figure(dpi=600)
 plt.imshow(mark,origin='upper') # 显示矩阵的图像

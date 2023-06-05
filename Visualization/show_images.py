@@ -4,7 +4,7 @@
 import os
 import matplotlib.pyplot as plt
 import cv2
-folder_path = r"C:\Users\dell\Desktop\imagestacks\imagestacks\software_resize\img"#todo Need Set
+folder_path = r"C:\Users\dell\Desktop\information fusion\Original material\software_resize\img"#todo Need Set
 file_names = os.listdir(folder_path)
 #用来把自己的放在最后显示
 file_names.remove('Proposed.jpg')

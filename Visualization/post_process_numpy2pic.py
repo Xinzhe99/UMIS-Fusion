@@ -23,17 +23,22 @@ c1 = np.mat(
 c1=c1.A #original matrix
 c2=decisionmap_process(c1,k_size=5)#post-process matrix
 
-c=c2#need set
-plt.figure(dpi=500)
+c=c1#need set
+plt.figure()
+plt.rcParams['font.sans-serif'] = ['Times New Roman']
+plt.rcParams['font.weight'] = 'normal'
+plt.rcParams['font.size'] = '12'
 plt.imshow(c,origin='upper') # 显示矩阵的图像
+
+plt.axis('off')#隐藏刻度
 plt.tick_params(top=True, labeltop=True, bottom=False, labelbottom=False)
-if np.array_equal(c,c2):
-    plt.title("Processed Decision Matrix", color="black")
-else:
-    plt.title("Initial Decision Matrix", color="black")
-plt.xlabel('Width')
-plt.ylabel('Height')
-cbar=plt.colorbar(label='Imgage Layer Index') # 显示颜色条
+# if np.array_equal(c,c2):
+#     plt.title("Processed Decision Matrix", color="black")
+# else:
+#     plt.title("Initial Decision Matrix", color="black")
+# plt.xlabel('Width')
+# plt.ylabel('Height')
+cbar=plt.colorbar(label='') # 显示颜色条
 cbar.locator = MaxNLocator(nbins=5) # 设置颜色条的刻度位置为 5 个整数
 cbar.ax.set_title('Layer')
 cbar.ax.title.set_fontsize(10)
